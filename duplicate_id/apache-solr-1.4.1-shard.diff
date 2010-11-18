@@ -1,0 +1,131 @@
+diff -ur apache-solr-1.4.1/src/java/org/apache/solr/handler/component/QueryComponent.java apache-solr-1.4.1-shard/src/java/org/apache/solr/handler/component/QueryComponent.java
+--- apache-solr-1.4.1/src/java/org/apache/solr/handler/component/QueryComponent.java	2010-02-04 00:54:31.000000000 +0900
++++ apache-solr-1.4.1-shard/src/java/org/apache/solr/handler/component/QueryComponent.java	2010-08-13 18:12:08.000000000 +0900
+@@ -48,6 +48,10 @@
+ import java.util.*;
+ import java.text.Collator;
+ 
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++
++
+ /**
+  * TODO!
+  * 
+@@ -57,6 +61,8 @@
+ public class QueryComponent extends SearchComponent
+ {
+   public static final String COMPONENT_NAME = "query";
++
++  private static Logger log = LoggerFactory.getLogger(QueryComponent.class);
+   
+   @Override
+   public void prepare(ResponseBuilder rb) throws IOException
+@@ -388,6 +394,7 @@
+       // id to shard mapping, to eliminate any accidental dups
+       HashMap<Object,String> uniqueDoc = new HashMap<Object,String>();    
+ 
++      Map<Object,ShardDocInfo> shardDocs = new HashMap<Object, ShardDocInfo>();    
+       // Merge the docs via a priority queue so we don't have to sort *all* of the
+       // documents... we only need to order the top (rows+start)
+       ShardFieldSortedHitQueue queue = new ShardFieldSortedHitQueue(sortFields, ss.getOffset() + ss.getCount());
+@@ -411,41 +418,54 @@
+           SolrDocument doc = docs.get(i);
+           Object id = doc.getFieldValue(uniqueKeyField.getName());
+ 
+-          String prevShard = uniqueDoc.put(id, srsp.getShard());
++          String shard = srsp.getShard();
++          String prevShard = uniqueDoc.put(id, shard);
+           if (prevShard != null) {
+-            // duplicate detected
+             numFound--;
+ 
+-            // For now, just always use the first encountered since we can't currently
+-            // remove the previous one added to the priority queue.  If we switched
+-            // to the Java5 PriorityQueue, this would be easier.
+-            continue;
+-            // make which duplicate is used deterministic based on shard
+-            // if (prevShard.compareTo(srsp.shard) >= 0) {
+-            //  TODO: remove previous from priority queue
+-            //  continue;
+-            // }
++            log.info("prevShard: " + prevShard);
++            log.info("shard: " + shard);
++              
++            if (prevShard.compareTo(shard) >= 0) {
++                uniqueDoc.put(id, prevShard);
++                log.info(doc.toString());
++                continue;
++            }
+           }
++          log.info("shardDocs.put()");
++          log.info(doc.toString());
++              
++
++
++          shardDocs.put(id, new ShardDocInfo(id, i, doc,
++                      shard, sortFieldValues));
++
++        } // end for-each-doc-in-response
++      } // end for-each-response
++
++      for (ShardDocInfo info: shardDocs.values()) {
+ 
+           ShardDoc shardDoc = new ShardDoc();
+-          shardDoc.id = id;
+-          shardDoc.shard = srsp.getShard();
+-          shardDoc.orderInShard = i;
++          SolrDocument doc = info.doc;
++          shardDoc.id = info.id;
++          shardDoc.shard = info.shard;
++          shardDoc.orderInShard = info.orderInShard;
++          shardDoc.sortFieldValues = info.sortFieldValues;
++
+           Object scoreObj = doc.getFieldValue("score");
+           if (scoreObj != null) {
+-            if (scoreObj instanceof String) {
+-              shardDoc.score = Float.parseFloat((String)scoreObj);
+-            } else {
+-              shardDoc.score = (Float)scoreObj;
+-            }
++              if (scoreObj instanceof String) {
++                  shardDoc.score = Float.parseFloat((String)scoreObj);
++              } else {
++                  shardDoc.score = (Float)scoreObj;
++              }
+           }
+ 
+-          shardDoc.sortFieldValues = sortFieldValues;
+ 
+           queue.insert(shardDoc);
+-        } // end for-each-doc-in-response
+-      } // end for-each-response
++      }
+ 
++      log.info("queue.size:" + queue.size());
+ 
+       // The queue now has 0 -> queuesize docs, where queuesize <= start + rows
+       // So we want to pop the last documents off the queue to get
+@@ -586,4 +606,22 @@
+   public URL[] getDocs() {
+     return null;
+   }
++
++
++  private static class ShardDocInfo {
++      public SolrDocument doc;
++      public String shard;
++      public Object id;
++      public int orderInShard;
++      public NamedList sortFieldValues;
++
++      public ShardDocInfo(Object id, int orderInShard, 
++              SolrDocument doc, String shard, NamedList sortFieldValues) {
++          this.id = id;
++          this.orderInShard = orderInShard;
++          this.doc = doc;
++          this.shard = shard;
++          this.sortFieldValues = sortFieldValues;
++      }
++  }
+ }
