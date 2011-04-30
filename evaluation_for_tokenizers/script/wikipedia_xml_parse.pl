@@ -23,11 +23,15 @@ my @stash;
 my @output_elements;
 my $do_output;
 my $page_element;
+my $id;
 
 sub new {
     my $type = shift;
     @output_elements = qw/title text/;
     $page_element    = 'page';
+    $id = 0;
+    push @stash, $id;
+    print "id\ttitle\ttext\n";
     return bless {}, $type;
 }
 
@@ -60,6 +64,7 @@ sub end_element {
         my $text = join( "\t", @stash );
         print $text, "\n";
         @stash = ();
+        push @stash, ++$id;
     }
 }
 
