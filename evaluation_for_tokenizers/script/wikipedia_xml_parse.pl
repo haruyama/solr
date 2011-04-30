@@ -61,6 +61,11 @@ sub end_element {
         $do_output = 0;
     }
     elsif ( $element->{Name} eq $page_element ) {
+        while (scalar(@stash) < 3) {
+            push @stash, '';
+        }
+
+
         my $text = join( "\t", @stash );
         print $text, "\n";
         @stash = ();
