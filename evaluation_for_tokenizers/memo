@@ -1,1 +1,1 @@
-time curl "http://localhost:8080/solr31/update/csv?stream.file=/home/haruyama/work/solr/evaluation_for_tokenizers/data/jawiki.tsv&encapsulator=&separator=%09&commit=true"
+time curl "http://localhost:8080/solr31/update/csv?stream.file=/home/haruyama/work/solr/evaluation_for_tokenizers/data/jawiki.tsv&encapsulator=%ff&separator=%09&commit=true"
