@@ -1,0 +1,1 @@
+../../solr31/conf/protwords.txt
