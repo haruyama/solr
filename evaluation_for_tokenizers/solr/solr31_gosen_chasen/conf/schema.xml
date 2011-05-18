@@ -403,7 +403,7 @@
 
     <fieldType name="text_ja" class="solr.TextField" positionIncrementGap="100">
       <analyzer>
-              <tokenizer class="solr.JapaneseTokenizerFactory"/>
+        <tokenizer class="solr.JapaneseTokenizerFactory" compositePOS="compositePOS.txt"/>
       </analyzer>
     </fieldType>
 
